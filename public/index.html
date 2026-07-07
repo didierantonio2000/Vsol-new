@@ -1,1 +1,1799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConectaQ OLT NMS v10</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #0f766e; --secondary: #1e293b;
+      --success: #16a34a; --danger: #dc2626;
+      --warning: #ea580c; --info: #0284c7;
+      --purple: #7c3aed;
+      --bg: #f8fafc; --card: #ffffff;
+      --border: #e2e8f0; --text: #1e293b;
+      --text-muted: #64748b;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.05);
+    }
+    body.dark-mode { --bg:#0f172a; --card:#1e293b; --border:#334155; --text:#f1f5f9; --text-muted:#94a3b8; }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,sans-serif; }
+    body { background:var(--bg); color:var(--text); line-height:1.6; transition:background 0.3s,color 0.3s; }
 
+    header { background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%); color:#fff; padding:14px 24px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 12px rgba(0,0,0,0.15); position:sticky; top:0; z-index:100; }
+    .header-left { display:flex; align-items:center; gap:20px; }
+    .logo { font-size:18px; font-weight:900; letter-spacing:-0.5px; white-space:nowrap; }
+    .olt-selector { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:7px 12px; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px; max-width:260px; }
+    .header-right { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .cache-badge { font-size:11px; color:rgba(255,255,255,0.55); white-space:nowrap; }
+
+    .btn { padding:9px 14px; border-radius:8px; border:0; cursor:pointer; font-weight:600; font-size:13px; transition:all 0.2s; white-space:nowrap; }
+    .btn-primary   { background:var(--primary);   color:#fff; }
+    .btn-primary:hover   { background:#0d5c56; transform:translateY(-1px); }
+    .btn-secondary { background:var(--card);     color:var(--text); border:1px solid var(--border); }
+    .btn-secondary:hover { background:var(--bg); }
+    .btn-danger  { background:var(--danger);  color:#fff; }
+    .btn-warning { background:var(--warning); color:#fff; }
+    .btn-success { background:var(--success); color:#fff; }
+    .btn-info    { background:var(--info);    color:#fff; }
+    .btn-purple  { background:var(--purple);  color:#fff; }
+    .btn-sm { padding:5px 9px; font-size:11px; }
+    .btn:disabled { opacity:0.55; cursor:not-allowed; transform:none!important; }
+
+    .nav-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); background:var(--card); padding:0 24px; box-shadow:var(--shadow); overflow-x:auto; }
+    .nav-tab { padding:13px 16px; border:0; background:transparent; cursor:pointer; font-weight:600; font-size:13px; color:var(--text-muted); border-bottom:3px solid transparent; transition:all 0.2s; white-space:nowrap; flex-shrink:0; }
+    .nav-tab:hover { color:var(--text); }
+    .nav-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+    .nav-tab .badge-count { background:var(--danger); color:#fff; font-size:10px; font-weight:800; padding:1px 5px; border-radius:10px; margin-left:4px; vertical-align:middle; }
+
+    .container { max-width:1800px; margin:0 auto; padding:0 24px 40px; }
+    .view { display:none; padding-top:20px; }
+    .view.active { display:block; }
+
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:16px; margin-bottom:24px; }
+    .kpi-card { background:var(--card); border-radius:12px; padding:20px; border:1px solid var(--border); cursor:pointer; transition:all 0.2s; box-shadow:var(--shadow); }
+    .kpi-card:hover { transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,0.1); border-color:var(--primary); }
+    .kpi-label { font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+    .kpi-value { font-size:36px; font-weight:900; }
+
+    .charts-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-bottom:24px; }
+    .chart-container { background:var(--card); border-radius:12px; padding:20px; border:1px solid var(--border); box-shadow:var(--shadow); height:240px; }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); }
+    th { font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); background:var(--bg); cursor:pointer; }
+    th:hover { background:var(--border); }
+    tr:hover { background:rgba(15,118,110,0.03); }
+    .table-card { background:var(--card); border-radius:12px; border:1px solid var(--border); overflow:hidden; box-shadow:var(--shadow); }
+    .table-header { padding:14px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); }
+
+    .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+    .badge-online   { background:#dcfce7; color:#166534; }
+    .badge-offline  { background:#fee2e2; color:#991b1b; }
+    .badge-critical { background:#fed7aa; color:#92400e; }
+    .badge-pending  { background:#ede9fe; color:#6d28d9; }
+    .badge-restarting { background:#fef9c3; color:#92400e; animation:pulse 1s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    .power-cell { display:flex; align-items:center; gap:6px; }
+    .power-bar  { width:38px; height:8px; border-radius:4px; display:inline-block; }
+    .power-val  { font-size:12px; font-weight:700; font-family:monospace; }
+    .signal-bars { display:inline-flex; align-items:flex-end; gap:2px; height:16px; margin-right:2px; }
+    .signal-bar  { width:4px; border-radius:2px; display:inline-block; }
+
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200; justify-content:center; align-items:center; padding:16px; }
+    .modal { background:var(--card); border-radius:16px; padding:28px; width:700px; max-width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    .modal-sm { width:420px; }
+    .modal-md { width:560px; }
+    .modal-lg { width:900px; }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+    .modal-title { font-size:18px; font-weight:800; }
+    .close-btn { background:none; border:none; cursor:pointer; font-size:24px; color:var(--text-muted); line-height:1; }
+    .close-btn:hover { color:var(--danger); }
+
+    .tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px; overflow-x:auto; }
+    .tab-btn { padding:10px 16px; border:0; background:transparent; cursor:pointer; font-weight:600; font-size:13px; color:var(--text-muted); border-bottom:3px solid transparent; transition:all 0.2s; white-space:nowrap; }
+    .tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); }
+    .tab-content { display:none; }
+    .tab-content.active { display:block; }
+
+    .form-group { margin-bottom:16px; }
+    .form-group label { display:block; font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.4px; }
+    .form-group input, .form-group select, .form-group textarea { width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font-size:13px; transition:border 0.2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(15,118,110,0.1); }
+    .form-group textarea { height:72px; resize:vertical; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+    .actions-cell { display:flex; gap:4px; flex-wrap:nowrap; }
+    .checkbox-cell { width:36px; }
+
+    .pons-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+    .pon-card { background:var(--card); border-radius:12px; padding:20px; border:1px solid var(--border); box-shadow:var(--shadow); }
+    .pon-title { font-size:16px; font-weight:800; margin-bottom:12px; }
+    .pon-stat { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
+    .pon-stat-label { color:var(--text-muted); }
+    .pon-stat-value { font-weight:700; }
+    .pon-actions { display:flex; gap:8px; margin-top:16px; }
+
+    .move-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+    .move-card { background:var(--card); border-radius:12px; padding:20px; border:1px solid var(--border); box-shadow:var(--shadow); }
+    .move-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+
+    .event-log { display:flex; flex-direction:column; gap:8px; }
+    .event-item { padding:10px 14px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+    .event-item.success { background:#dcfce7; border-left:4px solid var(--success); }
+    .event-item.warning { background:#fef9c3; border-left:4px solid var(--warning); }
+    .event-item.danger  { background:#fee2e2; border-left:4px solid var(--danger);  }
+    .event-item.info    { background:#dbeafe; border-left:4px solid var(--info);    }
+    .event-time { font-size:11px; color:var(--text-muted); white-space:nowrap; margin-left:12px; }
+
+    .olt-item { padding:10px 0; border-bottom:1px solid var(--border); }
+    .olt-item:last-child { border-bottom:none; }
+    .olt-list { max-height:260px; overflow-y:auto; }
+
+    /* OLT Health */
+    .health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:20px; }
+    .health-card { background:var(--card); border-radius:12px; padding:20px; border:1px solid var(--border); box-shadow:var(--shadow); text-align:center; }
+    .health-val { font-size:28px; font-weight:900; margin:8px 0; }
+    .health-label { font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .health-bar-wrap { background:var(--border); border-radius:4px; height:8px; margin-top:10px; overflow:hidden; }
+    .health-bar { height:100%; border-radius:4px; transition:width 0.5s; }
+
+    /* Countdown reinicio */
+    .restart-countdown { background:#fef9c3; border:1px solid #fde047; border-radius:10px; padding:14px; margin:12px 0; text-align:center; display:none; }
+    .restart-countdown .cnt-num { font-size:32px; font-weight:900; color:var(--warning); }
+    .restart-countdown .cnt-msg { font-size:12px; color:#92400e; margin-top:4px; }
+    .restart-progress { height:6px; background:var(--border); border-radius:3px; margin-top:10px; overflow:hidden; }
+    .restart-progress-bar { height:100%; background:var(--warning); border-radius:3px; transition:width 1s linear; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">🌐 ConectaQ NMS</div>
+    <select id="olt-select" class="olt-selector" onchange="switchOLT()">
+      <option value="0">Cargando...</option>
+    </select>
+  </div>
+  <div class="header-right">
+    <span class="cache-badge" id="cache-badge"></span>
+    <button class="btn btn-secondary btn-sm" onclick="exportCSV()">📥 CSV</button>
+    <button class="btn btn-info btn-sm" onclick="switchView('olt-health',null);loadOltHealth()">🖥️ OLT Info</button>
+    <button class="btn btn-primary btn-sm" id="sync-btn" onclick="forceSync()">🔄 Sincronizar</button>
+    <button class="btn btn-secondary btn-sm" onclick="toggleTheme()">🌙 Tema</button>
+  </div>
+</header>
+
+<div class="nav-tabs" id="nav-tabs">
+  <button class="nav-tab active" onclick="switchView('dashboard',this)">📊 Dashboard</button>
+  <button class="nav-tab" onclick="switchView('olt-health',this);loadOltHealth()">🖥️ OLT Info</button>
+  <button class="nav-tab" onclick="switchView('pons',this)">🔌 Puertos PON</button>
+  <button class="nav-tab" onclick="switchView('onts',this)">📋 ONTs</button>
+  <button class="nav-tab" onclick="switchView('por-mover',this)">📦 Por Mover <span class="badge-count" id="moves-count" style="display:none">0</span></button>
+  <button class="nav-tab" onclick="switchView('autorizar',this)">✅ Autorizar</button>
+  <button class="nav-tab" onclick="switchView('vlans',this)">🔗 VLANs</button>
+  <button class="nav-tab" onclick="switchView('eventos',this)">📜 Eventos</button>
+</div>
+
+<main class="container">
+
+  <!-- ══════════ DASHBOARD ══════════ -->
+  <div id="dashboard" class="view active">
+    <div class="kpi-grid">
+      <div class="kpi-card" onclick="filterTable('all')">
+        <div class="kpi-label">📊 Total ONTs</div>
+        <div class="kpi-value" id="val-total">0</div>
+      </div>
+      <div class="kpi-card" onclick="filterTable('working')">
+        <div class="kpi-label">✅ Online</div>
+        <div class="kpi-value" id="val-online" style="color:var(--success)">0</div>
+      </div>
+      <div class="kpi-card" onclick="filterTable('offline')">
+        <div class="kpi-label">❌ Offline</div>
+        <div class="kpi-value" id="val-offline" style="color:var(--danger)">0</div>
+      </div>
+      <div class="kpi-card" onclick="filterTable('critical')">
+        <div class="kpi-label">⚠️ Críticas</div>
+        <div class="kpi-value" id="val-critical" style="color:var(--warning)">0</div>
+      </div>
+      <div class="kpi-card" onclick="switchView('por-mover',null)">
+        <div class="kpi-label">📦 Por Mover</div>
+        <div class="kpi-value" id="val-moves" style="color:var(--purple)">0</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-container"><canvas id="chart-status"></canvas></div>
+      <div class="chart-container"><canvas id="chart-pons"></canvas></div>
+      <div class="chart-container"><canvas id="chart-health"></canvas></div>
+      <div style="background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:var(--shadow)">
+        <div style="font-size:14px;font-weight:800;margin-bottom:12px">🖥️ OLTs Registrados</div>
+        <div id="olts-list" class="olt-list"></div>
+        <button class="btn btn-secondary btn-sm" style="width:100%;margin-top:12px" onclick="showAddOLT()">+ Agregar OLT</button>
+      </div>
+    </div>
+
+    <div style="background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:var(--shadow)">
+      <div style="font-size:14px;font-weight:800;margin-bottom:14px">🚨 Alertas Críticas (potencia abs ≥ 27 dBm)</div>
+      <div id="critical-alerts">
+        <div style="text-align:center;padding:20px;color:var(--text-muted)">Sin alertas críticas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ OLT INFO / HEALTH ══════════ -->
+  <div id="olt-health" class="view">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <h2 style="font-size:20px">🖥️ Información del OLT</h2>
+      <button class="btn btn-primary btn-sm" id="health-refresh-btn" onclick="loadOltHealth()">🔄 Actualizar</button>
+    </div>
+    <div id="health-loading" style="text-align:center;padding:60px;color:var(--text-muted)">
+      <div style="font-size:36px;margin-bottom:12px">⏳</div>
+      <div style="font-size:14px">Conectando al OLT para obtener información del sistema...</div>
+      <div style="font-size:12px;margin-top:8px;color:var(--text-muted)">Esto puede tomar unos segundos</div>
+    </div>
+    <div id="health-content" style="display:none">
+      <div class="health-grid">
+        <div class="health-card">
+          <div class="health-label">🔧 CPU</div>
+          <div class="health-val" id="hv-cpu">—</div>
+          <div style="font-size:12px;color:var(--text-muted)" id="hv-cpu-sub">—</div>
+          <div class="health-bar-wrap"><div class="health-bar" id="hbar-cpu" style="width:0%;background:#0f766e"></div></div>
+        </div>
+        <div class="health-card">
+          <div class="health-label">💾 Memoria</div>
+          <div class="health-val" id="hv-mem">—</div>
+          <div style="font-size:12px;color:var(--text-muted)" id="hv-mem-sub">—</div>
+          <div class="health-bar-wrap"><div class="health-bar" id="hbar-mem" style="width:0%;background:#0284c7"></div></div>
+        </div>
+        <div class="health-card">
+          <div class="health-label">⏱️ Uptime</div>
+          <div id="hv-uptime" style="font-size:15px;font-weight:800;margin:8px 0;word-break:break-word">—</div>
+          <div style="font-size:12px;color:var(--text-muted)">Tiempo activo</div>
+        </div>
+        <div class="health-card">
+          <div class="health-label">🌡️ Temperatura</div>
+          <div class="health-val" id="hv-temp">—</div>
+          <div style="font-size:12px;color:var(--text-muted)" id="hv-temp-sub">—</div>
+        </div>
+        <div class="health-card">
+          <div class="health-label">📦 Versión</div>
+          <div id="hv-version" style="font-size:13px;font-weight:800;margin:8px 0;word-break:break-all">—</div>
+          <div style="font-size:12px;color:var(--text-muted)">Firmware</div>
+        </div>
+        <div class="health-card">
+          <div class="health-label">🕐 Consultado</div>
+          <div id="hv-updated" style="font-size:13px;font-weight:700;margin:8px 0">—</div>
+          <div style="font-size:12px;color:var(--text-muted)">Última actualización</div>
+        </div>
+      </div>
+      <div style="background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:var(--shadow)">
+        <div style="font-size:14px;font-weight:800;margin-bottom:12px">📄 Salida raw del OLT (show version)</div>
+        <pre id="hv-raw" style="background:var(--bg);border-radius:8px;padding:14px;font-size:11px;font-family:monospace;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;border:1px solid var(--border)"></pre>
+      </div>
+    </div>
+    <div id="health-error" style="display:none;background:#fee2e2;border-radius:12px;padding:24px;text-align:center;border:1px solid #fca5a5">
+      <div style="font-size:36px;margin-bottom:12px">❌</div>
+      <div id="health-error-msg" style="font-size:14px;font-weight:700;color:#991b1b">Error de conexión</div>
+      <div style="font-size:12px;margin-top:8px;color:#b91c1c">Verifique que el OLT esté accesible por Telnet</div>
+    </div>
+  </div>
+
+  <!-- ══════════ PUERTOS PON ══════════ -->
+  <div id="pons" class="view">
+    <h2 style="margin-bottom:20px;font-size:20px">Gestión de Puertos PON</h2>
+    <div class="pons-grid" id="pons-container"></div>
+  </div>
+
+  <!-- ══════════ ONTs ══════════ -->
+  <div id="onts" class="view">
+    <div style="background:var(--card);border-radius:12px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span style="font-size:14px;font-weight:800">🔍 Filtros</span>
+        <button class="btn btn-secondary btn-sm" onclick="toggleFiltersPanel()">▼ Ocultar</button>
+      </div>
+      <div id="filters-panel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+        <div class="form-group" style="margin:0">
+          <label>Búsqueda</label>
+          <input type="text" id="search" placeholder="Nombre, cédula, serial..." oninput="renderTable()">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Estado</label>
+          <select id="filter-status" onchange="renderTable()">
+            <option value="">Todos</option>
+            <option value="working">✅ Online</option>
+            <option value="offline">❌ Offline</option>
+            <option value="critical">⚠️ Críticas</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Potencia RX (dBm)</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <input type="number" id="filter-power-min" placeholder="Mín" value="-40" oninput="renderTable()">
+            <input type="number" id="filter-power-max" placeholder="Máx" value="0"   oninput="renderTable()">
+          </div>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>VLAN</label>
+          <select id="filter-vlan" onchange="renderTable()">
+            <option value="">Todas</option>
+            <option value="sin">Sin VLAN</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Puerto PON</label>
+          <select id="filter-pon" onchange="renderTable()">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:6px;align-items:flex-end">
+          <button class="btn btn-secondary btn-sm" onclick="resetFilters()" style="flex:1">🔄 Limpiar</button>
+          <button class="btn btn-primary btn-sm" onclick="exportFiltered()" style="flex:1">📥 Exportar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <span style="font-size:12px;font-weight:800;color:var(--text-muted)">📊 <span id="count">0</span> / <span id="total">0</span> ONTs</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-danger btn-sm"  id="bulk-delete-btn"  style="display:none" onclick="bulkDelete()">🗑️ Borrar (<span id="selected-count">0</span>)</button>
+          <button class="btn btn-warning btn-sm" id="bulk-restart-btn" style="display:none" onclick="bulkRestart()">🔄 Reiniciar (<span id="selected-count2">0</span>)</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:36px;cursor:default"><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
+              <th onclick="sortTable('pon')">PON</th>
+              <th onclick="sortTable('ont')">ID</th>
+              <th onclick="sortTable('name')">Cliente</th>
+              <th onclick="sortTable('cedula')">Cédula</th>
+              <th onclick="sortTable('serial')">Serial</th>
+              <th onclick="sortTable('status')">Estado</th>
+              <th onclick="sortTable('rxPower')">RX (dBm)</th>
+              <th onclick="sortTable('vlan')">VLAN</th>
+              <th style="cursor:default">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ POR MOVER ══════════ -->
+  <div id="por-mover" class="view">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;margin-bottom:4px">📦 ONTs por Mover de PON</h2>
+        <p style="font-size:13px;color:var(--text-muted)">ONTs autorizadas en un PON de prueba que deben moverse al PON definitivo.</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="loadMoves()">🔄 Actualizar</button>
+        <button class="btn btn-purple btn-sm" onclick="executeAllMoves()" id="exec-all-btn">▶️ Ejecutar Todos</button>
+      </div>
+    </div>
+    <div id="moves-empty" style="text-align:center;padding:60px;color:var(--text-muted);background:var(--card);border-radius:12px;border:2px dashed var(--border)">
+      <div style="font-size:48px;margin-bottom:12px">📦</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px">Sin ONTs pendientes de mover</div>
+      <div style="font-size:13px">Usa el botón 📌 en la tabla de ONTs para agregar una a la cola</div>
+    </div>
+    <div id="moves-grid" class="move-grid"></div>
+  </div>
+
+  <!-- ══════════ AUTORIZAR ══════════ -->
+  <div id="autorizar" class="view">
+    <h2 style="margin-bottom:20px;font-size:20px">Equipos por Autorizar</h2>
+    <div class="table-card">
+      <table>
+        <thead><tr><th>PON</th><th>ID</th><th>Serial</th><th>Cliente existente</th><th>Acción</th></tr></thead>
+        <tbody id="unauth-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════ VLANs ══════════ -->
+  <div id="vlans" class="view">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div style="background:var(--card);border-radius:12px;padding:24px;border:1px solid var(--border);box-shadow:var(--shadow)">
+        <h3 style="margin-bottom:16px;font-size:16px">➕ Crear Nueva VLAN</h3>
+        <div class="form-group"><label>ID VLAN</label><input type="number" id="vlan-id" placeholder="Ej: 100"></div>
+        <div class="form-group"><label>Nombre</label><input type="text" id="vlan-name" placeholder="Ej: CLIENTES"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="createVlan()">Crear VLAN</button>
+      </div>
+      <div style="background:var(--card);border-radius:12px;padding:24px;border:1px solid var(--border);box-shadow:var(--shadow)">
+        <h3 style="margin-bottom:16px;font-size:16px">📋 VLANs Existentes</h3>
+        <div id="vlans-list" style="max-height:380px;overflow-y:auto">
+          <div style="text-align:center;padding:20px;color:var(--text-muted)">Cargando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ EVENTOS ══════════ -->
+  <div id="eventos" class="view">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="font-size:20px">Registro de Eventos</h2>
+      <button class="btn btn-secondary btn-sm" onclick="loadEvents()">🔄 Actualizar</button>
+    </div>
+    <div style="background:var(--card);border-radius:12px;padding:24px;border:1px solid var(--border);box-shadow:var(--shadow)">
+      <div id="events-log" class="event-log"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ══════════ MODAL EDITAR ONT ══════════ -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Gestionar ONT</h2>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+
+    <!-- Barra de potencia en tiempo real -->
+    <div style="background:var(--bg);border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border)">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:2px">Potencia RX actual</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <span id="modal-power-val" style="font-size:30px;font-weight:900">—</span>
+          <span style="font-size:13px;color:var(--text-muted)">dBm</span>
+          <span id="modal-power-label" style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px"></span>
+          <span id="modal-status-badge" style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:4px"></span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-info btn-sm" onclick="refreshModalPower()">⚡ Potencia</button>
+        <button class="btn btn-success btn-sm" onclick="resyncSingleOnt()">🔄 Estado</button>
+        <button class="btn btn-purple btn-sm" id="modal-add-move-btn" onclick="addCurrentToMoveQueue()">📌 Por Mover</button>
+      </div>
+    </div>
+
+    <!-- Countdown de reinicio -->
+    <div class="restart-countdown" id="restart-countdown">
+      <div class="cnt-msg">ONT reiniciada — esperando que vuelva en línea...</div>
+      <div class="cnt-num" id="cnt-num">30</div>
+      <div class="cnt-msg">segundos restantes</div>
+      <div class="restart-progress"><div class="restart-progress-bar" id="cnt-bar" style="width:100%"></div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('info',this)">📋 Información</button>
+      <button class="tab-btn" onclick="switchTab('traffic',this)">📊 Tráfico</button>
+      <button class="tab-btn" onclick="switchTab('history',this)">📈 Historial</button>
+      <button class="tab-btn" onclick="switchTab('control',this)">⚙️ Control</button>
+    </div>
+
+    <div id="info" class="tab-content active">
+      <input type="hidden" id="f-pon">
+      <input type="hidden" id="f-ont">
+      <input type="hidden" id="f-serial">
+
+      <div class="form-row">
+        <div class="form-group"><label>Nombre del Cliente</label><input type="text" id="f-name" placeholder="Ej: Juan Perez"></div>
+        <div class="form-group"><label>Cédula / Doc</label><input type="text" id="f-cedula" placeholder="Ej: 1234567890"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Dirección</label><input type="text" id="f-direccion" placeholder="Ej: Calle 10 #45"></div>
+        <div class="form-group"><label>Marquilla</label><input type="text" id="f-marquilla" placeholder="Ej: Piso 2 Apt 301"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Teléfono</label><input type="text" id="f-telefono" placeholder="Ej: 3001234567"></div>
+        <div class="form-group"><label>VLAN</label><select id="f-vlan"></select></div>
+      </div>
+      <div class="form-group">
+        <label>Notas internas</label>
+        <textarea id="f-notas" placeholder="Observaciones, referencia de instalación, etc..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>IP de Gestión</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="f-ip" placeholder="Obtener con el botón →" readonly style="flex:1">
+          <button class="btn btn-secondary btn-sm" onclick="getOnuIP()" style="white-space:nowrap">🔍 Obtener IP</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-primary" style="flex:1" onclick="saveClient()">💾 Guardar</button>
+      </div>
+    </div>
+
+    <div id="traffic" class="tab-content">
+      <div style="text-align:center;padding:20px">
+        <button class="btn btn-primary" onclick="startTraffic()">▶️ Iniciar Monitor (20s)</button>
+      </div>
+      <div id="traffic-data" style="font-family:'Courier New',monospace;font-size:12px;background:var(--bg);padding:14px;border-radius:8px;max-height:280px;overflow-y:auto;display:none;line-height:1.8"></div>
+    </div>
+
+    <div id="history" class="tab-content">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;height:280px">
+        <div style="border-radius:8px;overflow:hidden"><canvas id="chart-power-history"></canvas></div>
+        <div style="border-radius:8px;overflow:hidden"><canvas id="chart-consumption-history"></canvas></div>
+      </div>
+    </div>
+
+    <div id="control" class="tab-content">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+        <button class="btn btn-warning btn-sm" id="btn-restart-ont" onclick="restartOntWithCountdown()">🔄 Reiniciar ONT</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteOnu()">🗑️ Borrar ONT</button>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:12px;font-size:12px;color:var(--text-muted)">
+        ⚠️ <strong>Reiniciar:</strong> baja y sube la ONT. El estado se actualizará automáticamente tras ~30 segundos.<br>
+        ⛔ <strong>Borrar:</strong> elimina permanentemente la ONT de la configuración del OLT.
+      </div>
+    </div>
+
+    <div style="margin-top:18px">
+      <button class="btn btn-secondary" style="width:100%" onclick="closeModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL MOVER ONT ══════════ -->
+<div class="modal-overlay" id="modal-move">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 class="modal-title">↔️ Mover ONT de PON</h2>
+      <button class="close-btn" onclick="closeModalMove()">×</button>
+    </div>
+    <input type="hidden" id="mv-pon">
+    <input type="hidden" id="mv-ont">
+    <input type="hidden" id="mv-serial">
+    <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+      <strong id="mv-desc">—</strong><br>
+      <span style="color:var(--text-muted)">Serial: <span id="mv-serial-show" style="font-family:monospace">—</span></span><br>
+      <span style="color:var(--text-muted)">PON actual: <strong id="mv-current-pon">—</strong></span>
+    </div>
+    <div class="form-group">
+      <label>Mover a PON destino</label>
+      <select id="mv-to-pon" style="font-size:14px">
+        <option value="">Seleccione PON destino</option>
+      </select>
+    </div>
+    <div style="background:#ede9fe;border-radius:8px;padding:10px;font-size:12px;color:#6d28d9;margin-bottom:16px">
+      ✅ Los datos del cliente se conservan automáticamente al mover.
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-warning" style="flex:1" onclick="executeMoveOnu()">↔️ Mover Ahora</button>
+      <button class="btn btn-purple btn-sm" onclick="addToQueueFromMove()">📌 Agregar a Cola</button>
+      <button class="btn btn-secondary" onclick="closeModalMove()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL PON DETALLADO ══════════ -->
+<div class="modal-overlay" id="modal-pon">
+  <div class="modal" style="width:1000px;max-width:100%">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-pon-title">Detalles del PON</h2>
+      <button class="close-btn" onclick="closeModalPon()">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      <div style="background:var(--bg);padding:12px;border-radius:8px;text-align:center">
+        <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase">Total</div>
+        <div style="font-size:22px;font-weight:900;color:var(--primary)" id="pon-stat-total">0</div>
+      </div>
+      <div style="background:var(--bg);padding:12px;border-radius:8px;text-align:center">
+        <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase">Online</div>
+        <div style="font-size:22px;font-weight:900;color:var(--success)" id="pon-stat-online">0</div>
+      </div>
+      <div style="background:var(--bg);padding:12px;border-radius:8px;text-align:center">
+        <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase">Offline</div>
+        <div style="font-size:22px;font-weight:900;color:var(--danger)" id="pon-stat-offline">0</div>
+      </div>
+      <div style="background:var(--bg);padding:12px;border-radius:8px;text-align:center">
+        <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase">Prom dBm</div>
+        <div style="font-size:22px;font-weight:900;color:var(--info)" id="pon-stat-avgpower">—</div>
+      </div>
+    </div>
+    <div style="background:var(--card);border-radius:10px;border:1px solid var(--border);overflow:hidden">
+      <table>
+        <thead><tr><th>ID</th><th>Cliente</th><th>Serial</th><th>Estado</th><th>RX (dBm)</th><th style="cursor:default">Acciones</th></tr></thead>
+        <tbody id="pon-onts-table"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:18px">
+      <button class="btn btn-secondary" style="width:100%" onclick="closeModalPon()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL AUTORIZAR ══════════ -->
+<div class="modal-overlay" id="modal-auth">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h2 class="modal-title">✅ Autorizar Equipo</h2>
+      <button class="close-btn" onclick="closeModalAuth()">×</button>
+    </div>
+    <input type="hidden" id="auth-pon">
+    <input type="hidden" id="auth-ont">
+    <input type="hidden" id="auth-serial">
+    <div id="auth-existing-notice" style="display:none;background:#dcfce7;border-left:4px solid var(--success);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+      ✅ <strong>Datos encontrados:</strong> Este serial ya tiene un cliente registrado.
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre del Cliente</label><input type="text" id="auth-name" placeholder="Ej: Juan Perez"></div>
+      <div class="form-group"><label>Cédula / Doc</label><input type="text" id="auth-cedula" placeholder="Ej: 1234567890"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Dirección</label><input type="text" id="auth-direccion" placeholder="Ej: Calle 10 #45"></div>
+      <div class="form-group"><label>Marquilla</label><input type="text" id="auth-marquilla" placeholder="Ej: Piso 2"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Teléfono</label><input type="text" id="auth-telefono" placeholder="Ej: 3001234567"></div>
+      <div class="form-group"><label>VLAN</label><select id="auth-vlan"></select></div>
+    </div>
+    <div class="form-group">
+      <label>Notas</label>
+      <textarea id="auth-notas" placeholder="Observaciones de instalación..."></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="authorizeOnt()">✅ Autorizar</button>
+      <button class="btn btn-secondary" onclick="closeModalAuth()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL AGREGAR OLT ══════════ -->
+<div class="modal-overlay" id="modal-olt">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 class="modal-title">Agregar OLT</h2>
+      <button class="close-btn" onclick="closeModalOLT()">×</button>
+    </div>
+    <div class="form-group"><label>Nombre</label><input type="text" id="olt-name" placeholder="Ej: OLT Sucursal Norte"></div>
+    <div class="form-group"><label>Host / IP</label><input type="text" id="olt-host" placeholder="Ej: 192.168.1.100"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Puerto Telnet</label><input type="number" id="olt-port" value="23"></div>
+      <div class="form-group"><label>Usuario</label><input type="text" id="olt-user" placeholder="admin"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Contraseña</label><input type="password" id="olt-pass" placeholder="••••••"></div>
+      <div class="form-group"><label>Pass Enable</label><input type="password" id="olt-enable" placeholder="••••••"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="addOLT()">Agregar</button>
+      <button class="btn btn-secondary" onclick="closeModalOLT()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL PROGRAMAR MOVIMIENTO ══════════ -->
+<div class="modal-overlay" id="modal-queue-move">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 class="modal-title">📌 Programar Movimiento</h2>
+      <button class="close-btn" onclick="document.getElementById('modal-queue-move').style.display='none'">×</button>
+    </div>
+    <input type="hidden" id="qm-pon">
+    <input type="hidden" id="qm-ont">
+    <input type="hidden" id="qm-serial">
+    <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+      <strong id="qm-desc">—</strong><br>
+      <span style="color:var(--text-muted)">PON actual: <strong id="qm-current-pon">—</strong></span>
+    </div>
+    <div class="form-group">
+      <label>PON destino (opcional)</label>
+      <select id="qm-to-pon">
+        <option value="">Sin definir aún</option>
+      </select>
+    </div>
+    <div style="background:#ede9fe;border-radius:8px;padding:10px;font-size:12px;color:#6d28d9;margin-bottom:14px">
+      📋 Quedará en la lista "Por Mover". Los datos del cliente siempre se conservan.
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-purple" style="flex:1" onclick="saveQueueMove()">📌 Guardar en Cola</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-queue-move').style.display='none'">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// Estado global
+// ══════════════════════════════════════════
+let allOnts      = [];
+let vlansData    = [];
+let movesData    = [];
+let currentOLT   = 0;
+let charts       = {};
+let darkMode     = localStorage.getItem('darkMode') === 'true';
+let selectedOnts = new Set();
+let sortColumn   = 'pon';
+let sortDir      = 'asc';
+let filtersVis   = true;
+let restartTimer = null;
+
+if (darkMode) document.body.classList.add('dark-mode');
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+window.ontStore  = {};
+window.moveStore = {};
+
+function getPowerColor(p) {
+  if (p == null) return '#cbd5e1';
+  const a = Math.abs(p);
+  if (a < 23) return '#16a34a';
+  if (a < 27) return '#22c55e';
+  if (a < 30) return '#ea580c';
+  return '#dc2626';
+}
+
+function getPowerLabel(p) {
+  if (p == null) return '';
+  const a = Math.abs(p);
+  if (a < 23) return { text:'Excelente', bg:'#dcfce7', color:'#166534' };
+  if (a < 27) return { text:'Buena',     bg:'#bbf7d0', color:'#15803d' };
+  if (a < 30) return { text:'Crítica',   bg:'#fed7aa', color:'#92400e' };
+  return               { text:'Muy baja', bg:'#fee2e2', color:'#991b1b' };
+}
+
+function isCritical(o) { return o.rxPower != null && Math.abs(o.rxPower) >= 27; }
+function formatPower(p) { return p != null ? p : 'N/A'; }
+
+function signalBars(p) {
+  if (p == null) return '';
+  const a   = Math.abs(p);
+  const lvl = a < 23 ? 4 : a < 25 ? 3 : a < 27 ? 2 : a < 30 ? 1 : 0;
+  const colors = ['#dc2626','#ea580c','#84cc16','#22c55e','#16a34a'];
+  const heights = ['4px','8px','12px','16px'];
+  return `<span class="signal-bars">${heights.map((h,i) =>
+    `<span class="signal-bar" style="height:${h};background:${i<lvl?colors[Math.min(lvl,colors.length-1)]:'var(--border)'}"></span>`
+  ).join('')}</span>`;
+}
+
+function statusBadge(status) {
+  if (status === 'working')    return '<span class="badge badge-online">working</span>';
+  if (status === 'restarting') return '<span class="badge badge-restarting">reiniciando...</span>';
+  return `<span class="badge badge-offline">${esc(status)}</span>`;
+}
+
+// ══════════════════════════════════════════
+// Carga de OLTs
+// ══════════════════════════════════════════
+async function loadOLTs() {
+  const res  = await fetch('/napi/olts');
+  const data = await res.json();
+  const sel  = document.getElementById('olt-select');
+  sel.innerHTML = data.olts.map((o, i) => `<option value="${i}">${esc(o.name)} — ${esc(o.host)}</option>`).join('');
+  sel.value = currentOLT;
+}
+
+function switchOLT() {
+  currentOLT = Number(document.getElementById('olt-select').value);
+  loadData();
+}
+
+// ══════════════════════════════════════════
+// Carga de datos
+// ══════════════════════════════════════════
+async function loadData() {
+  try {
+    const res  = await fetch(`/napi/onts/${currentOLT}`);
+    const data = await res.json();
+    processData(data);
+  } catch (e) { console.error('loadData:', e); }
+}
+
+async function forceSync() {
+  const btn = document.getElementById('sync-btn');
+  btn.disabled = true; btn.textContent = '⏳ Cargando...';
+  try {
+    const res  = await fetch(`/napi/onts/${currentOLT}/refresh`, { method:'POST' });
+    const data = await res.json();
+    processData(data);
+  } catch (e) { alert('Error: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = '🔄 Sincronizar'; }
+}
+
+function processData(data) {
+  if (!data || !data.pons) return;
+  allOnts = [];
+  data.pons.forEach(p => p.onts.forEach(o => allOnts.push({ ...o, pon:p.pon, type:o.type||'GPON' })));
+
+  document.getElementById('val-total').textContent   = data.totalOnts;
+  document.getElementById('val-online').textContent  = data.totalWorking;
+  document.getElementById('val-offline').textContent = data.totalOnts - data.totalWorking;
+  document.getElementById('val-critical').textContent = allOnts.filter(isCritical).length;
+  document.getElementById('total').textContent = data.totalOnts;
+
+  if (data.cachedAt || data.fromCache) {
+    const ago = Math.round((Date.now() - new Date(data.cachedAt || data.updatedAt).getTime()) / 1000);
+    document.getElementById('cache-badge').textContent = data.stale ? '⚠️ Caché desactualizado' : (ago < 5 ? '✅ Datos frescos' : `Caché ${ago}s atrás`);
+  } else {
+    document.getElementById('cache-badge').textContent = '✅ Datos frescos';
+  }
+
+  const ponSel  = document.getElementById('filter-pon');
+  const prevPon = ponSel.value;
+  ponSel.innerHTML = '<option value="">Todos</option>' + data.pons.map(p => `<option value="${p.pon}">PON ${p.pon}</option>`).join('');
+  ponSel.value = prevPon;
+
+  const vlanSel  = document.getElementById('filter-vlan');
+  const prevVlan = vlanSel.value;
+  const uVlans   = [...new Set(allOnts.map(o=>o.vlan).filter(v=>v))];
+  vlanSel.innerHTML = '<option value="">Todas</option><option value="sin">Sin VLAN</option>' + uVlans.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  vlanSel.value = prevVlan;
+
+  updateCharts(data);
+  renderTable();
+  renderPons(data);
+  updateCriticalAlerts();
+  updateOLTsList();
+  loadUnauthorized();
+  loadVLANs();
+  loadEvents();
+  loadMoves();
+}
+
+// ══════════════════════════════════════════
+// OLT Health
+// ══════════════════════════════════════════
+async function loadOltHealth() {
+  const loading = document.getElementById('health-loading');
+  const content = document.getElementById('health-content');
+  const errDiv  = document.getElementById('health-error');
+  const btn     = document.getElementById('health-refresh-btn');
+
+  loading.style.display='block'; content.style.display='none'; errDiv.style.display='none';
+  btn.disabled=true; btn.textContent='⏳ Consultando OLT...';
+
+  try {
+    const res  = await fetch(`/napi/olt/${currentOLT}/health`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message);
+
+    const h = data.health;
+    loading.style.display='none'; content.style.display='block';
+
+    // CPU
+    const cpuPct = h.cpu && h.cpu.percent != null ? h.cpu.percent : null;
+    document.getElementById('hv-cpu').textContent = cpuPct != null ? `${cpuPct}%` : '—';
+    document.getElementById('hv-cpu-sub').textContent = cpuPct != null ? (cpuPct < 50 ? 'Normal' : cpuPct < 80 ? 'Moderado' : 'Alto') : 'No disponible';
+    const cpuColor = cpuPct == null ? '#0f766e' : cpuPct < 50 ? '#16a34a' : cpuPct < 80 ? '#ea580c' : '#dc2626';
+    const cpuBar = document.getElementById('hbar-cpu');
+    cpuBar.style.width = (cpuPct||0) + '%';
+    cpuBar.style.background = cpuColor;
+
+    // Memoria
+    const memPct = h.memory && h.memory.percent != null ? h.memory.percent : null;
+    document.getElementById('hv-mem').textContent = memPct != null ? `${memPct}%` : '—';
+    const memSub = (h.memory && h.memory.used && h.memory.total)
+      ? `${h.memory.used} / ${h.memory.total} KB`
+      : (memPct != null ? (memPct<70?'Normal':'Alto') : 'No disponible');
+    document.getElementById('hv-mem-sub').textContent = memSub;
+    const memBar = document.getElementById('hbar-mem');
+    memBar.style.width = (memPct||0) + '%';
+    memBar.style.background = memPct == null ? '#0284c7' : memPct < 70 ? '#0284c7' : memPct < 90 ? '#ea580c' : '#dc2626';
+
+    // Uptime
+    document.getElementById('hv-uptime').textContent = h.uptime || '—';
+
+    // Temperatura
+    const temp = h.temperature && h.temperature.celsius != null ? h.temperature.celsius : null;
+    document.getElementById('hv-temp').textContent = temp != null ? `${temp}°C` : '—';
+    const tempSub = temp != null ? (temp < 50 ? 'Normal' : temp < 70 ? 'Caliente' : '⚠️ Muy caliente') : 'No disponible';
+    document.getElementById('hv-temp-sub').textContent = tempSub;
+    if (temp != null) document.getElementById('hv-temp').style.color = temp < 50 ? 'var(--success)' : temp < 70 ? 'var(--warning)' : 'var(--danger)';
+
+    // Versión
+    document.getElementById('hv-version').textContent = h.version || '—';
+
+    // Actualizado
+    document.getElementById('hv-updated').textContent = h.updatedAt ? new Date(h.updatedAt).toLocaleString() : '—';
+
+    // Raw
+    document.getElementById('hv-raw').textContent = h.rawVersion || '(sin datos)';
+
+  } catch(err) {
+    loading.style.display='none'; errDiv.style.display='block';
+    document.getElementById('health-error-msg').textContent = err.message || 'Error de conexión con el OLT';
+  }
+  btn.disabled=false; btn.textContent='🔄 Actualizar';
+}
+
+// ══════════════════════════════════════════
+// Tabla ONTs
+// ══════════════════════════════════════════
+function renderTable() {
+  const search  = document.getElementById('search').value.toLowerCase();
+  const stFil   = document.getElementById('filter-status').value;
+  const pwMin   = parseFloat(document.getElementById('filter-power-min').value);
+  const pwMax   = parseFloat(document.getElementById('filter-power-max').value);
+  const vlanFil = document.getElementById('filter-vlan').value;
+  const ponFil  = document.getElementById('filter-pon').value;
+  const tbody   = document.getElementById('table-body');
+
+  let filtered = allOnts.filter(o => {
+    const ms = (o.name||'').toLowerCase().includes(search)||(o.cedula||'').toLowerCase().includes(search)||o.serial.toLowerCase().includes(search);
+    if (!ms) return false;
+    if (stFil==='critical' && !isCritical(o)) return false;
+    if (stFil && stFil!=='critical' && o.status!==stFil) return false;
+    if (o.rxPower!=null) { if (!isNaN(pwMin) && o.rxPower<pwMin) return false; if (!isNaN(pwMax) && o.rxPower>pwMax) return false; }
+    if (vlanFil==='sin' && o.vlan) return false;
+    if (vlanFil && vlanFil!=='sin' && o.vlan!==vlanFil) return false;
+    if (ponFil && o.pon!==Number(ponFil)) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    let av=a[sortColumn], bv=b[sortColumn];
+    if (av==null) av=''; if (bv==null) bv='';
+    if (typeof av==='string') { av=av.toLowerCase(); bv=bv.toLowerCase(); }
+    if (av<bv) return sortDir==='asc'?-1:1;
+    if (av>bv) return sortDir==='asc'?1:-1;
+    return 0;
+  });
+
+  document.getElementById('count').textContent = filtered.length;
+
+  tbody.innerHTML = filtered.map(o => {
+    const key    = `${o.pon}_${o.ont}`;
+    window.ontStore[key] = o;
+    const pColor = getPowerColor(o.rxPower);
+    const badge  = o.status==='restarting' ? 'badge-restarting' : isCritical(o) ? 'badge-critical' : (o.status==='working' ? 'badge-online' : 'badge-offline');
+    const hasPendingMove = o.pendingMove || movesData.find(m => m.serial===o.serial);
+    const ne=esc(o.name), ce=esc(o.cedula), se=esc(o.serial), ve=esc(o.vlan);
+    return `<tr ${hasPendingMove ? 'style="background:rgba(124,58,237,0.04)"' : ''}>
+      <td class="checkbox-cell"><input type="checkbox" class="ont-checkbox" value="${key}" onchange="updateBulkButtons()"></td>
+      <td><strong style="color:var(--primary)">PON ${o.pon}</strong></td>
+      <td><strong>${o.ont}</strong></td>
+      <td>
+        ${ne || '<span style="color:#cbd5e1">—</span>'}
+        ${hasPendingMove ? '<span class="badge badge-pending" style="margin-left:4px">por mover</span>' : ''}
+      </td>
+      <td style="font-size:12px">${ce||'—'}</td>
+      <td style="font-family:monospace;font-size:11px">
+        ${se}
+        <button title="Copiar serial" data-copy="${se}" class="copy-btn" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-muted);padding:0 2px">📋</button>
+      </td>
+      <td><span class="badge ${badge}">${o.status}</span></td>
+      <td>
+        <div class="power-cell" id="pwr-cell-${o.pon}-${o.ont}">
+          ${signalBars(o.rxPower)}
+          <span class="power-bar" style="background:${pColor}"></span>
+          <span class="power-val">${formatPower(o.rxPower)}</span>
+        </div>
+      </td>
+      <td style="font-size:12px">${ve||'<span style="color:#cbd5e1">—</span>'}</td>
+      <td>
+        <div class="actions-cell">
+          <button class="btn btn-sm btn-secondary" data-action="edit"       data-key="${key}" title="Editar">✏️</button>
+          <button class="btn btn-sm btn-info"      data-action="power"      data-pon="${o.pon}" data-ont="${o.ont}" title="Potencia">⚡</button>
+          <button class="btn btn-sm btn-warning"   data-action="move"       data-key="${key}" title="Mover de PON">↔️</button>
+          <button class="btn btn-sm btn-purple"    data-action="queuemove"  data-key="${key}" title="Cola Por Mover">📌</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const el = document.createElement('div');
+    el.textContent = '✅ Copiado';
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1e293b;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;z-index:9999;animation:slideUp 0.2s';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1800);
+  });
+}
+
+document.addEventListener('change', function(e) {
+  const sel = e.target.closest('select[data-action="set-dest"]');
+  if (sel && sel.value) { updateMoveDestination(sel.dataset.id, sel.value); }
+});
+
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('copy-btn')) { copyText(e.target.dataset.copy); return; }
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const key    = btn.dataset.key;
+  const o      = key ? window.ontStore[key] : null;
+  if (action === 'edit'             && o) { openModal(o); return; }
+  if (action === 'edit-close-pon'   && o) { closeModalPon(); openModal(o); return; }
+  if (action === 'move'             && o) { openMoveModal(o); return; }
+  if (action === 'move-close-pon'   && o) { closeModalPon(); openMoveModal(o); return; }
+  if (action === 'queuemove'        && o) { openQueueMoveModal(o.pon, o.ont, o.serial, o.name); return; }
+  if (action === 'queuemove-close-pon' && o) { closeModalPon(); openQueueMoveModal(o.pon, o.ont, o.serial, o.name); return; }
+  if (action === 'auth-ont') {
+    const u = window.unauthStore && window.unauthStore[key];
+    if (u) { openAuthModal(u.pon, u.ont, u.serial); } return;
+  }
+  if (action === 'remove-move') { removeMoveFromQueue(btn.dataset.id); return; }
+  if (action === 'exec-move')   { executeMoveFromQueue(btn.dataset.id); return; }
+  if (action === 'set-dest') {
+    const sel = e.target.closest('select[data-action="set-dest"]');
+    if (sel && sel.value) updateMoveDestination(sel.dataset.id, sel.value);
+    return;
+  }
+  if (action === 'power') {
+    const pon = Number(btn.dataset.pon), ont = Number(btn.dataset.ont);
+    quickRefreshPower(pon, ont, btn); return;
+  }
+});
+
+async function quickRefreshPower(pon, ont, btn) {
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const res  = await fetch(`/napi/onu/${currentOLT}/${pon}/${ont}/power`);
+    const data = await res.json();
+    if (data.ok) {
+      const o = allOnts.find(x => x.pon===pon && x.ont===ont);
+      if (o) o.rxPower = data.rxPower;
+      const cell = document.getElementById(`pwr-cell-${pon}-${ont}`);
+      if (cell) {
+        const c = getPowerColor(data.rxPower);
+        cell.innerHTML = `${signalBars(data.rxPower)}<span class="power-bar" style="background:${c}"></span><span class="power-val">${formatPower(data.rxPower)}</span>`;
+      }
+    }
+  } catch(e) { console.error(e); }
+  btn.disabled = false; btn.textContent = '⚡';
+}
+
+// ══════════════════════════════════════════
+// Modal editar ONT
+// ══════════════════════════════════════════
+function openModal(o) {
+  if (typeof o === 'string') o = window.ontStore[o];
+  if (!o) return;
+  const { pon, ont, serial, name='', cedula='', direccion='', marquilla='', telefono='', vlan='', notas='' } = o;
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('f-pon').value       = pon;
+  document.getElementById('f-ont').value       = ont;
+  document.getElementById('f-serial').value    = serial;
+  document.getElementById('f-name').value      = name;
+  document.getElementById('f-cedula').value    = cedula;
+  document.getElementById('f-direccion').value = direccion;
+  document.getElementById('f-marquilla').value = marquilla;
+  document.getElementById('f-telefono').value  = telefono;
+  document.getElementById('f-notas').value     = notas;
+  document.getElementById('f-ip').value        = '';
+  document.getElementById('modal-title').textContent = `Gestionar PON${pon}:${ont} — ${serial}`;
+
+  const valEl = document.getElementById('modal-power-val');
+  const lblEl = document.getElementById('modal-power-label');
+  const stEl  = document.getElementById('modal-status-badge');
+
+  // Estado
+  const st = o.status || 'unknown';
+  stEl.textContent  = st;
+  stEl.style.background = st==='working' ? '#dcfce7' : st==='restarting' ? '#fef9c3' : '#fee2e2';
+  stEl.style.color  = st==='working' ? '#166534' : st==='restarting' ? '#92400e' : '#991b1b';
+
+  if (o.rxPower != null) {
+    valEl.textContent = o.rxPower;
+    valEl.style.color = getPowerColor(o.rxPower);
+    const lbl = getPowerLabel(o.rxPower);
+    lblEl.textContent  = lbl.text;
+    lblEl.style.background = lbl.bg;
+    lblEl.style.color      = lbl.color;
+  } else { valEl.textContent = '—'; valEl.style.color = 'var(--text)'; lblEl.textContent = ''; }
+
+  // Ocultar countdown si estaba activo
+  document.getElementById('restart-countdown').style.display = 'none';
+  if (restartTimer) { clearInterval(restartTimer); restartTimer = null; }
+
+  setTimeout(() => { try { document.getElementById('f-vlan').value = vlan; } catch(_){} }, 60);
+  loadPowerHistory(serial);
+
+  document.querySelectorAll('#modal .tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('#modal .tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('info').classList.add('active');
+  document.querySelector('#modal .tab-btn').classList.add('active');
+}
+
+function closeModal() {
+  if (restartTimer) { clearInterval(restartTimer); restartTimer = null; }
+  document.getElementById('modal').style.display='none';
+}
+
+async function refreshModalPower() {
+  const pon   = document.getElementById('f-pon').value;
+  const ont   = document.getElementById('f-ont').value;
+  const valEl = document.getElementById('modal-power-val');
+  const lblEl = document.getElementById('modal-power-label');
+  valEl.textContent = '⏳'; lblEl.textContent = '';
+  try {
+    const res  = await fetch(`/napi/onu/${currentOLT}/${pon}/${ont}/power`);
+    const data = await res.json();
+    if (data.ok) {
+      valEl.textContent = formatPower(data.rxPower);
+      valEl.style.color = getPowerColor(data.rxPower);
+      const lbl = getPowerLabel(data.rxPower);
+      lblEl.textContent = lbl.text; lblEl.style.background = lbl.bg; lblEl.style.color = lbl.color;
+      const o = allOnts.find(x => x.pon===Number(pon) && x.ont===Number(ont));
+      if (o) o.rxPower = data.rxPower;
+    }
+  } catch(e) { valEl.textContent = '—'; }
+}
+
+// ─── NUEVO: Resync de una ONT específica (sin recargar todo) ───
+async function resyncSingleOnt() {
+  const pon   = document.getElementById('f-pon').value;
+  const ont   = document.getElementById('f-ont').value;
+  const stEl  = document.getElementById('modal-status-badge');
+  const valEl = document.getElementById('modal-power-val');
+  const lblEl = document.getElementById('modal-power-label');
+
+  stEl.textContent = '⏳ consultando...';
+  stEl.style.background = '#fef9c3'; stEl.style.color = '#92400e';
+
+  try {
+    const res  = await fetch(`/napi/onu/${currentOLT}/${pon}/${ont}/state`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message);
+
+    // Actualizar badge de estado
+    const st = data.status;
+    stEl.textContent  = st;
+    stEl.style.background = st==='working' ? '#dcfce7' : '#fee2e2';
+    stEl.style.color  = st==='working' ? '#166534' : '#991b1b';
+
+    // Actualizar potencia
+    if (data.rxPower != null) {
+      valEl.textContent = formatPower(data.rxPower);
+      valEl.style.color = getPowerColor(data.rxPower);
+      const lbl = getPowerLabel(data.rxPower);
+      lblEl.textContent = lbl.text; lblEl.style.background = lbl.bg; lblEl.style.color = lbl.color;
+    }
+
+    // Actualizar en allOnts
+    const o = allOnts.find(x => x.pon===Number(pon) && x.ont===Number(ont));
+    if (o) { o.status = data.status; if (data.rxPower != null) o.rxPower = data.rxPower; }
+    renderTable();
+
+    toast('✅ Estado actualizado');
+  } catch(err) {
+    stEl.textContent = '❌ Error';
+    stEl.style.background = '#fee2e2'; stEl.style.color = '#991b1b';
+    toast('❌ ' + err.message);
+  }
+}
+
+// ─── NUEVO: Reiniciar con countdown y auto-resync ───
+async function restartOntWithCountdown() {
+  if (!confirm('¿Reiniciar esta ONT?\n\nEl estado se actualizará automáticamente en ~30 segundos.')) return;
+
+  const pon = document.getElementById('f-pon').value;
+  const ont = document.getElementById('f-ont').value;
+  const btn = document.getElementById('btn-restart-ont');
+
+  btn.disabled = true; btn.textContent = '⏳ Reiniciando...';
+
+  try {
+    const res  = await fetch('/napi/onu/restart', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({oltIndex:currentOLT, pon, ont}) });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || 'Error al reiniciar');
+
+    // Actualizar en tabla local
+    const o = allOnts.find(x => x.pon===Number(pon) && x.ont===Number(ont));
+    if (o) o.status = 'restarting';
+    const stEl = document.getElementById('modal-status-badge');
+    stEl.textContent = 'reiniciando...'; stEl.style.background = '#fef9c3'; stEl.style.color = '#92400e';
+    renderTable();
+
+    // Mostrar countdown
+    startRestartCountdown(Number(pon), Number(ont), 30);
+  } catch(err) {
+    toast('❌ ' + err.message);
+  }
+  btn.disabled = false; btn.textContent = '🔄 Reiniciar ONT';
+}
+
+function startRestartCountdown(pon, ont, seconds) {
+  const cntDiv = document.getElementById('restart-countdown');
+  const cntNum = document.getElementById('cnt-num');
+  const cntBar = document.getElementById('cnt-bar');
+  cntDiv.style.display = 'block';
+  let remaining = seconds;
+  cntNum.textContent = remaining;
+  cntBar.style.width = '100%';
+
+  if (restartTimer) clearInterval(restartTimer);
+  restartTimer = setInterval(async () => {
+    remaining--;
+    cntNum.textContent = remaining;
+    cntBar.style.width = (remaining / seconds * 100) + '%';
+
+    if (remaining <= 0) {
+      clearInterval(restartTimer); restartTimer = null;
+      cntDiv.style.display = 'none';
+      // Hacer resync automático
+      await resyncSingleOnt();
+    }
+  }, 1000);
+}
+
+function addCurrentToMoveQueue() {
+  const pon    = document.getElementById('f-pon').value;
+  const ont    = document.getElementById('f-ont').value;
+  const serial = document.getElementById('f-serial').value;
+  const name   = document.getElementById('f-name').value;
+  closeModal();
+  openQueueMoveModal(Number(pon), Number(ont), serial, name);
+}
+
+async function saveClient() {
+  const serial = document.getElementById('f-serial').value;
+  const body   = { serial, name:document.getElementById('f-name').value, cedula:document.getElementById('f-cedula').value, direccion:document.getElementById('f-direccion').value, marquilla:document.getElementById('f-marquilla').value, telefono:document.getElementById('f-telefono').value, vlan:document.getElementById('f-vlan').value, notas:document.getElementById('f-notas').value };
+  const res = await fetch('/napi/onu/update', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const data = await res.json();
+  if (data.ok) {
+    const o = allOnts.find(x => x.serial===serial);
+    if (o) Object.assign(o, body);
+    renderTable();
+    closeModal();
+    toast('✅ Cliente guardado');
+  } else { alert('❌ Error al guardar'); }
+}
+
+// ══════════════════════════════════════════
+// Modal Mover ONT
+// ══════════════════════════════════════════
+function openMoveModal(o) {
+  if (typeof o === 'string') o = window.ontStore[o];
+  if (!o) return;
+  const { pon, ont, serial, name } = o;
+  document.getElementById('mv-pon').value    = pon;
+  document.getElementById('mv-ont').value    = ont;
+  document.getElementById('mv-serial').value = serial;
+  document.getElementById('mv-desc').textContent        = name || serial;
+  document.getElementById('mv-serial-show').textContent = serial;
+  document.getElementById('mv-current-pon').textContent = `PON ${pon}`;
+  const sel = document.getElementById('mv-to-pon');
+  sel.innerHTML = '<option value="">Seleccione PON destino</option>' +
+    Array.from({length:8},(_,i)=>i+1).filter(p=>p!==Number(pon)).map(p=>`<option value="${p}">PON ${p}</option>`).join('');
+  document.getElementById('modal-move').style.display='flex';
+}
+function closeModalMove() { document.getElementById('modal-move').style.display='none'; }
+
+async function executeMoveOnu() {
+  const toPon = document.getElementById('mv-to-pon').value;
+  if (!toPon) { alert('Selecciona un PON destino'); return; }
+  if (!confirm(`¿Mover la ONT del PON ${document.getElementById('mv-pon').value} al PON ${toPon}?\n\n✅ Los datos del cliente se conservan.`)) return;
+  const res = await fetch('/napi/onu/move', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ oltIndex:currentOLT, fromPon:document.getElementById('mv-pon').value, ont:document.getElementById('mv-ont').value, toPon, serial:document.getElementById('mv-serial').value })
+  });
+  const data = await res.json();
+  if (data.ok) { toast('✅ ' + data.message); closeModalMove(); loadData(); }
+  else          { alert('❌ ' + (data.message||'Error')); }
+}
+
+function addToQueueFromMove() {
+  const pon    = document.getElementById('mv-pon').value;
+  const ont    = document.getElementById('mv-ont').value;
+  const serial = document.getElementById('mv-serial').value;
+  const name   = document.getElementById('mv-desc').textContent;
+  const toPon  = document.getElementById('mv-to-pon').value;
+  closeModalMove();
+  openQueueMoveModal(Number(pon), Number(ont), serial, name, toPon);
+}
+
+// ══════════════════════════════════════════
+// Cola de Movimientos
+// ══════════════════════════════════════════
+function openQueueMoveModal(pon, ont, serial, name, preselectedToPon='') {
+  document.getElementById('qm-pon').value      = pon;
+  document.getElementById('qm-ont').value      = ont;
+  document.getElementById('qm-serial').value   = serial;
+  document.getElementById('qm-desc').textContent        = name || serial;
+  document.getElementById('qm-current-pon').textContent = `PON ${pon}`;
+  const sel = document.getElementById('qm-to-pon');
+  sel.innerHTML = '<option value="">Sin definir aún</option>' +
+    Array.from({length:8},(_,i)=>i+1).filter(p=>p!==Number(pon)).map(p=>`<option value="${p}">PON ${p}</option>`).join('');
+  if (preselectedToPon) sel.value = preselectedToPon;
+  document.getElementById('modal-queue-move').style.display='flex';
+}
+
+async function saveQueueMove() {
+  const body = { oltIndex:currentOLT, serial:document.getElementById('qm-serial').value, fromPon:document.getElementById('qm-pon').value, fromOnt:document.getElementById('qm-ont').value, toPon:document.getElementById('qm-to-pon').value||null, name:document.getElementById('qm-desc').textContent };
+  const res = await fetch('/napi/moves/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const data = await res.json();
+  if (data.ok) { document.getElementById('modal-queue-move').style.display='none'; toast('✅ Agregado a la cola'); loadMoves(); renderTable(); }
+  else { alert('❌ ' + data.message); }
+}
+
+async function loadMoves() {
+  try {
+    const res  = await fetch('/napi/moves');
+    const data = await res.json();
+    movesData  = data.moves || [];
+
+    const count = movesData.length;
+    document.getElementById('val-moves').textContent = count;
+    const badge = document.getElementById('moves-count');
+    if (count > 0) { badge.textContent = count; badge.style.display='inline'; }
+    else             { badge.style.display='none'; }
+
+    const grid  = document.getElementById('moves-grid');
+    const empty = document.getElementById('moves-empty');
+
+    if (count === 0) { empty.style.display='block'; grid.innerHTML=''; return; }
+    empty.style.display='none';
+
+    movesData.forEach(m => {
+      window.moveStore[m.id] = m;
+      const key = `${m.fromPon}_${m.fromOnt}`;
+      const c   = m.customer || {};
+      window.ontStore[key] = { pon:m.fromPon, ont:m.fromOnt, serial:m.serial, name:c.name||m.name||'', cedula:c.cedula||'', direccion:c.direccion||'', marquilla:c.marquilla||'', telefono:c.telefono||'', vlan:c.vlan||'', notas:c.notas||'' };
+    });
+
+    const frag = document.createDocumentFragment();
+    movesData.forEach(m => {
+      const c     = m.customer || {};
+      const named = c.name || m.name || m.serial;
+      const card  = document.createElement('div');
+      card.className = 'move-card';
+      card.innerHTML = `
+        <div class="move-card-header">
+          <div>
+            <div style="font-weight:800;font-size:14px">${esc(named)}</div>
+            <div style="font-family:monospace;font-size:11px;color:var(--text-muted);margin-top:2px">${esc(m.serial)}</div>
+            ${c.cedula   ? `<div style="font-size:12px;color:var(--text-muted)">Cédula: ${esc(c.cedula)}</div>`   : ''}
+            ${c.telefono ? `<div style="font-size:12px;color:var(--text-muted)">Tel: ${esc(c.telefono)}</div>`    : ''}
+          </div>
+          <button data-action="remove-move" data-id="${esc(m.id)}" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;padding:0 4px" title="Quitar">×</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin:12px 0;background:var(--bg);border-radius:8px;padding:10px">
+          <div style="text-align:center;flex:1">
+            <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase">Desde</div>
+            <div style="font-size:18px;font-weight:900;color:var(--primary)">PON ${Number(m.fromPon)}</div>
+          </div>
+          <div style="font-size:20px;color:var(--text-muted)">→</div>
+          <div style="text-align:center;flex:1">
+            <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase">Hacia</div>
+            ${m.toPon
+              ? `<div style="font-size:18px;font-weight:900;color:var(--success)">PON ${Number(m.toPon)}</div>`
+              : `<select data-action="set-dest" data-id="${esc(m.id)}" data-from="${Number(m.fromPon)}" style="width:100%;font-weight:700;font-size:13px">
+                   <option value="">Definir PON...</option>
+                   ${Array.from({length:8},(_,i)=>i+1).filter(p=>p!==Number(m.fromPon)).map(p=>`<option value="${p}">PON ${p}</option>`).join('')}
+                 </select>`
+            }
+          </div>
+        </div>
+        ${c.direccion ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">📍 ${esc(c.direccion)} ${c.marquilla?'— '+esc(c.marquilla):''}</div>` : ''}
+        ${c.notas ? `<div style="font-size:12px;background:var(--bg);border-radius:6px;padding:8px;margin-bottom:10px;color:var(--text-muted)">📝 ${esc(c.notas)}</div>` : ''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${m.toPon
+            ? `<button class="btn btn-success btn-sm" style="flex:1" data-action="exec-move" data-id="${esc(m.id)}">▶️ Ejecutar (PON ${Number(m.fromPon)} → PON ${Number(m.toPon)})</button>`
+            : `<button class="btn btn-secondary btn-sm" style="flex:1" disabled>Definir PON destino primero</button>`
+          }
+          <button class="btn btn-secondary btn-sm" data-action="edit" data-key="${Number(m.fromPon)}_${Number(m.fromOnt)}">✏️ Editar</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Agregado: ${new Date(m.addedAt).toLocaleString()}</div>`;
+      frag.appendChild(card);
+    });
+    grid.innerHTML = ''; grid.appendChild(frag);
+  } catch(e) { console.error(e); }
+}
+
+async function updateMoveDestination(id, toPon) {
+  if (!toPon) return;
+  await fetch(`/napi/moves/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ toPon }) });
+  loadMoves();
+}
+
+async function executeMoveFromQueue(id) {
+  const move = movesData.find(m => m.id===id);
+  if (!move) return;
+  if (!confirm(`¿Mover ONT del PON ${move.fromPon} al PON ${move.toPon}?\n\n✅ Los datos del cliente se conservan.`)) return;
+  const res  = await fetch(`/napi/moves/${id}/execute`, { method:'POST', headers:{'Content-Type':'application/json'} });
+  const data = await res.json();
+  if (data.ok) { toast('✅ ' + data.message); loadMoves(); loadData(); }
+  else          { alert('❌ ' + (data.message||'Error')); }
+}
+
+async function removeMoveFromQueue(id) {
+  if (!confirm('¿Quitar de la cola de movimientos?')) return;
+  await fetch(`/napi/moves/${id}`, { method:'DELETE' });
+  loadMoves(); renderTable();
+}
+
+async function executeAllMoves() {
+  const pending = movesData.filter(m => m.toPon);
+  if (pending.length === 0) { alert('No hay movimientos con PON destino definido'); return; }
+  if (!confirm(`¿Ejecutar ${pending.length} movimientos pendientes?`)) return;
+  const btn = document.getElementById('exec-all-btn');
+  btn.disabled=true; btn.textContent='⏳ Ejecutando...';
+  const res  = await fetch('/napi/moves/execute-all', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({oltIndex:currentOLT}) });
+  const data = await res.json();
+  btn.disabled=false; btn.textContent='▶️ Ejecutar Todos';
+  const ok  = data.results.filter(r=>r.ok).length;
+  const err = data.results.filter(r=>!r.ok).length;
+  toast(`✅ ${ok} movidos${err>0?' | ❌ '+err+' con error':''}`);
+  loadMoves(); loadData();
+}
+
+// ══════════════════════════════════════════
+// Autorizar ONT
+// ══════════════════════════════════════════
+async function openAuthModal(pon, ont, serial) {
+  document.getElementById('modal-auth').style.display='flex';
+  document.getElementById('auth-pon').value    = pon;
+  document.getElementById('auth-ont').value    = ont;
+  document.getElementById('auth-serial').value = serial;
+  ['auth-name','auth-cedula','auth-direccion','auth-marquilla','auth-telefono','auth-notas'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('auth-existing-notice').style.display='none';
+  try {
+    const res  = await fetch(`/napi/customer/${encodeURIComponent(serial)}`);
+    const data = await res.json();
+    if (data.ok && data.found) {
+      const c = data.customer;
+      document.getElementById('auth-name').value      = c.name      || '';
+      document.getElementById('auth-cedula').value    = c.cedula    || '';
+      document.getElementById('auth-direccion').value = c.direccion || '';
+      document.getElementById('auth-marquilla').value = c.marquilla || '';
+      document.getElementById('auth-telefono').value  = c.telefono  || '';
+      document.getElementById('auth-notas').value     = c.notas     || '';
+      setTimeout(() => { try { document.getElementById('auth-vlan').value = c.vlan || ''; } catch(_){} }, 60);
+      document.getElementById('auth-existing-notice').style.display='block';
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function authorizeOnt() {
+  const res = await fetch('/napi/onu/authorize/full', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ oltIndex:currentOLT, pon:document.getElementById('auth-pon').value, ont:document.getElementById('auth-ont').value, serial:document.getElementById('auth-serial').value, name:document.getElementById('auth-name').value, cedula:document.getElementById('auth-cedula').value, direccion:document.getElementById('auth-direccion').value, marquilla:document.getElementById('auth-marquilla').value, telefono:document.getElementById('auth-telefono').value, vlan:document.getElementById('auth-vlan').value, notas:document.getElementById('auth-notas').value })
+  });
+  const data = await res.json();
+  if (data.ok) { toast('✅ ONT autorizada'); closeModalAuth(); loadData(); }
+  else          { alert('❌ ' + (data.message||'Error')); }
+}
+
+function closeModalAuth() { document.getElementById('modal-auth').style.display='none'; }
+
+async function loadUnauthorized() {
+  try {
+    const res  = await fetch(`/napi/onu/unauthorized/${currentOLT}`);
+    const data = await res.json();
+    const tbody = document.getElementById('unauth-table');
+    if (!data.unauthorized || data.unauthorized.length===0) {
+      tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted)">✅ Sin equipos pendientes de autorizar</td></tr>';
+      return;
+    }
+    // Guardar ONTs no autorizadas en store para acceso seguro sin inline JS
+    window.unauthStore = {};
+    data.unauthorized.forEach(o => { window.unauthStore[`${o.pon}_${o.ont}`] = o; });
+
+    const frag2 = document.createDocumentFragment();
+    data.unauthorized.forEach(o => {
+      const key = `${o.pon}_${o.ont}`;
+      const se  = esc(o.serial);
+      const tr  = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong style="color:var(--primary)">PON ${Number(o.pon)}</strong></td>
+        <td><strong>${Number(o.ont)}</strong></td>
+        <td style="font-family:monospace;font-size:12px">
+          ${se}
+          <button data-copy="${se}" class="copy-btn" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-muted)">📋</button>
+        </td>
+        <td data-existing-key="${key}" style="font-size:12px;color:var(--text-muted)">Verificando...</td>
+        <td><button class="btn btn-primary btn-sm" data-action="auth-ont" data-key="${key}">✅ Autorizar</button></td>
+      `;
+      frag2.appendChild(tr);
+    });
+    tbody.innerHTML = '';
+    tbody.appendChild(frag2);
+
+    for (const o of data.unauthorized) {
+      const key = `${o.pon}_${o.ont}`;
+      fetch(`/napi/customer/${encodeURIComponent(o.serial)}`).then(r=>r.json()).then(d => {
+        const el = tbody.querySelector(`[data-existing-key="${key}"]`);
+        if (el) el.textContent = (d.ok && d.found) ? `✅ ${d.customer.name||'—'}` : '—';
+      }).catch(()=>{});
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ══════════════════════════════════════════
+// Modal PON detallado
+// ══════════════════════════════════════════
+async function openPonModal(pon) {
+  try {
+    const res  = await fetch(`/napi/pon/${currentOLT}/${pon}/stats`);
+    const data = await res.json();
+    const s    = data.stats;
+    document.getElementById('modal-pon-title').textContent   = `Detalles PON ${pon}`;
+    document.getElementById('pon-stat-total').textContent    = s.totalOnts;
+    document.getElementById('pon-stat-online').textContent   = s.onlineOnts;
+    document.getElementById('pon-stat-offline').textContent  = s.offlineOnts;
+    document.getElementById('pon-stat-avgpower').textContent = s.avgPower + ' dBm';
+    s.onts.forEach(o => { window.ontStore[`${o.pon}_${o.ont}`] = o; });
+    document.getElementById('pon-onts-table').innerHTML = s.onts.map(o => {
+      const key   = `${o.pon}_${o.ont}`;
+      const badge = o.status==='restarting' ? 'badge-restarting' : isCritical(o) ? 'badge-critical' : (o.status==='working'?'badge-online':'badge-offline');
+      return `<tr>
+        <td><strong>${o.ont}</strong></td>
+        <td>${esc(o.name)||'—'}</td>
+        <td style="font-family:monospace;font-size:11px">${esc(o.serial)}</td>
+        <td><span class="badge ${badge}">${o.status}</span></td>
+        <td id="pon-pwr-${o.pon}-${o.ont}">
+          <div class="power-cell">${signalBars(o.rxPower)}<span class="power-bar" style="background:${getPowerColor(o.rxPower)}"></span><span class="power-val">${formatPower(o.rxPower)}</span></div>
+        </td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-sm btn-secondary" data-action="edit-close-pon"      data-key="${key}" title="Editar">✏️</button>
+            <button class="btn btn-sm btn-info"      data-action="power"               data-pon="${o.pon}" data-ont="${o.ont}" title="Potencia">⚡</button>
+            <button class="btn btn-sm btn-warning"   data-action="move-close-pon"      data-key="${key}" title="Mover">↔️</button>
+            <button class="btn btn-sm btn-purple"    data-action="queuemove-close-pon" data-key="${key}" title="Cola">📌</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+    document.getElementById('modal-pon').style.display='flex';
+  } catch(e) { alert('Error: ' + e.message); }
+}
+function closeModalPon() { document.getElementById('modal-pon').style.display='none'; }
+
+// ══════════════════════════════════════════
+// Charts
+// ══════════════════════════════════════════
+function updateCharts(data) {
+  ['status','pons','health'].forEach(k => { if (charts[k]) charts[k].destroy(); });
+  charts.status = new Chart(document.getElementById('chart-status').getContext('2d'), {
+    type:'doughnut',
+    data:{ labels:['Online','Offline'], datasets:[{ data:[data.totalWorking,data.totalOnts-data.totalWorking], backgroundColor:['#16a34a','#dc2626'], borderWidth:0 }] },
+    options:{ plugins:{ legend:{ display:true, position:'bottom' } }, cutout:'70%' }
+  });
+  charts.pons = new Chart(document.getElementById('chart-pons').getContext('2d'), {
+    type:'bar',
+    data:{ labels:data.pons.map(p=>`PON ${p.pon}`), datasets:[{ label:'ONTs', data:data.pons.map(p=>p.count), backgroundColor:'#0f766e', borderRadius:6 }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+  });
+  charts.health = new Chart(document.getElementById('chart-health').getContext('2d'), {
+    type:'bar',
+    data:{ labels:data.pons.map(p=>`PON ${p.pon}`), datasets:[{ label:'Salud %', data:data.pons.map(p=>p.count>0?Math.round(p.onts.filter(o=>o.status==='working').length/p.count*100):0), backgroundColor:'#0284c7', borderRadius:6 }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, max:100 } } }
+  });
+}
+
+function renderPons(data) {
+  document.getElementById('pons-container').innerHTML = data.pons.map(p => {
+    const w = p.onts.filter(o=>o.status==='working').length;
+    const avg = p.onts.length>0 ? (p.onts.reduce((a,o)=>a+(o.rxPower||0),0)/p.onts.length).toFixed(1) : 'N/A';
+    const crit = p.onts.filter(isCritical).length;
+    const pm   = p.onts.filter(o=>o.pendingMove).length;
+    return `<div class="pon-card">
+      <div class="pon-title">🔌 PON ${p.pon}</div>
+      <div class="pon-stat"><span class="pon-stat-label">Total:</span><span class="pon-stat-value">${p.count}</span></div>
+      <div class="pon-stat"><span class="pon-stat-label">Online:</span><span class="pon-stat-value" style="color:var(--success)">${w}</span></div>
+      <div class="pon-stat"><span class="pon-stat-label">Potencia Prom:</span><span class="pon-stat-value">${avg} dBm</span></div>
+      ${crit>0?`<div class="pon-stat"><span class="pon-stat-label">⚠️ Críticas:</span><span class="pon-stat-value" style="color:var(--warning)">${crit}</span></div>`:''}
+      ${pm>0?`<div class="pon-stat"><span class="pon-stat-label">📦 Por mover:</span><span class="pon-stat-value" style="color:var(--purple)">${pm}</span></div>`:''}
+      <div class="pon-actions">
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openPonModal(${p.pon})">👁️ Ver ONTs</button>
+        <button class="btn btn-warning btn-sm" style="flex:1" onclick="restartPonDirect(${p.pon})">🔄 Reiniciar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateCriticalAlerts() {
+  const critical = [...allOnts.filter(isCritical)].sort((a,b)=>Math.abs(b.rxPower)-Math.abs(a.rxPower));
+  const cont     = document.getElementById('critical-alerts');
+  if (!critical.length) { cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted)">✅ Sin alertas críticas</div>'; return; }
+  critical.forEach(o => { window.ontStore[`${o.pon}_${o.ont}`] = o; });
+  const frag = document.createDocumentFragment();
+  critical.forEach(o => {
+    const a=Math.abs(o.rxPower); const bg=a>=30?'#fee2e2':'#fed7aa'; const tc=a>=30?'#991b1b':'#92400e';
+    const wrap = document.createElement('div');
+    wrap.style.cssText=`padding:12px;background:${bg};border-left:4px solid ${tc};border-radius:6px;margin-bottom:8px;font-size:12px;display:flex;justify-content:space-between;align-items:center`;
+    const info = document.createElement('div');
+    info.innerHTML = `<strong>PON ${o.pon}:${o.ont}</strong> — ${esc(o.name||o.serial)}<br><span style="color:${tc}">Potencia: ${o.rxPower} dBm · abs ${a} ${signalBars(o.rxPower)}</span>`;
+    const btn = document.createElement('button');
+    btn.className='btn btn-sm btn-secondary';
+    btn.textContent='Ver';
+    btn.dataset.action='edit';
+    btn.dataset.key=`${o.pon}_${o.ont}`;
+    wrap.appendChild(info); wrap.appendChild(btn);
+    frag.appendChild(wrap);
+  });
+  cont.innerHTML=''; cont.appendChild(frag);
+}
+
+function updateOLTsList() {
+  fetch('/napi/olts').then(r=>r.json()).then(data => {
+    document.getElementById('olts-list').innerHTML = data.olts.map(o => `
+      <div class="olt-item"><strong>${esc(o.name)}</strong><br><span style="color:var(--text-muted);font-size:12px">${esc(o.host)}:${o.port}</span></div>
+    `).join('');
+  });
+}
+
+// ══════════════════════════════════════════
+// VLANs, Tráfico, Historial, IP
+// ══════════════════════════════════════════
+async function loadVLANs() {
+  try {
+    const res  = await fetch(`/napi/vlans/${currentOLT}`);
+    const data = await res.json();
+    vlansData  = data.vlans || [];
+    const opts = '<option value="">Sin VLAN</option>' + vlansData.map(v=>`<option value="${v.id}">${esc(v.name)} (${v.id})</option>`).join('');
+    ['f-vlan','auth-vlan'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=opts; });
+    document.getElementById('vlans-list').innerHTML = vlansData.map(v=>`<div class="olt-item"><strong>${esc(v.name)}</strong><br><span style="color:var(--text-muted);font-size:12px">ID: ${v.id}</span></div>`).join('') || '<div style="text-align:center;padding:20px;color:var(--text-muted)">Sin VLANs</div>';
+  } catch(e) { console.error(e); }
+}
+
+async function createVlan() {
+  const vlanId=document.getElementById('vlan-id').value, vlanName=document.getElementById('vlan-name').value;
+  if (!vlanId||!vlanName) { alert('Completa los campos'); return; }
+  const res = await fetch('/napi/vlan/create', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({oltIndex:currentOLT,vlanId:Number(vlanId),vlanName}) });
+  if (res.ok) { toast('✅ VLAN creada'); document.getElementById('vlan-id').value=''; document.getElementById('vlan-name').value=''; loadVLANs(); }
+  else { alert('❌ Error'); }
+}
+
+async function startTraffic() {
+  const pon=document.getElementById('f-pon').value, ont=document.getElementById('f-ont').value;
+  const td=document.getElementById('traffic-data'); td.style.display='block'; td.textContent='⏳ Monitoreando 20 segundos...';
+  try {
+    const res=await fetch(`/napi/onu/${currentOLT}/${pon}/${ont}/traffic`), data=await res.json();
+    let h=`📊 ESTADÍSTICAS\n\nProm RX: ${data.traffic.avgRx} Mbps | Prom TX: ${data.traffic.avgTx} Mbps\nMáx  RX: ${data.traffic.maxRx} Mbps | Máx  TX: ${data.traffic.maxTx} Mbps\n\nMUESTRAS:\n`;
+    data.traffic.samples.forEach((s,i)=>{ h+=`#${i+1}: RX ${s.rx} | TX ${s.tx} Mbps\n`; });
+    td.textContent=h;
+  } catch(e) { td.textContent='❌ '+e.message; }
+}
+
+async function loadPowerHistory(serial) {
+  try {
+    const res=await fetch(`/napi/onu/${serial}/history`), data=await res.json();
+    let history=data.history||[];
+    if (!history.length) for(let i=0;i<10;i++) history.push({timestamp:new Date(Date.now()-i*60000).toISOString(),power:-20-Math.random()*5,consumption:50+Math.random()*30});
+    const pwCtx=document.getElementById('chart-power-history').getContext('2d');
+    const cnsCtx=document.getElementById('chart-consumption-history').getContext('2d');
+    if(charts.powerHistory) charts.powerHistory.destroy();
+    if(charts.consumptionHistory) charts.consumptionHistory.destroy();
+    charts.powerHistory=new Chart(pwCtx,{type:'line',data:{labels:history.map((_,i)=>`${i}m`),datasets:[{label:'dBm',data:history.map(h=>h.power),borderColor:'#0f766e',backgroundColor:'rgba(15,118,110,0.1)',tension:0.3,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'dBm'}}}}});
+    charts.consumptionHistory=new Chart(cnsCtx,{type:'line',data:{labels:history.map((_,i)=>`${i}m`),datasets:[{label:'%',data:history.map(h=>h.consumption),borderColor:'#ea580c',backgroundColor:'rgba(234,88,12,0.1)',tension:0.3,fill:true}]},options:{plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'%'},beginAtZero:true,max:100}}}});
+  } catch(e) { console.error(e); }
+}
+
+async function getOnuIP() {
+  const pon=document.getElementById('f-pon').value, ont=document.getElementById('f-ont').value, ipF=document.getElementById('f-ip');
+  ipF.value='Obteniendo...';
+  try { const res=await fetch(`/napi/onu/${currentOLT}/${pon}/${ont}/ip`), data=await res.json(); ipF.value=data.ip; }
+  catch(e) { ipF.value='No disponible'; }
+}
+
+async function deleteOnu() {
+  if(!confirm('¿Borrar esta ONT? Esta acción es permanente.')) return;
+  const res=await fetch('/napi/onu/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oltIndex:currentOLT,pon:document.getElementById('f-pon').value,ont:document.getElementById('f-ont').value})});
+  const data=await res.json();
+  if(data.ok){toast('✅ ONT eliminada');closeModal();loadData();}else{alert('❌ '+(data.message||'Error'));}
+}
+
+async function restartPonDirect(pon) {
+  if(!confirm(`¿Reiniciar PON ${pon}?`)) return;
+  const res=await fetch('/napi/pon/restart',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oltIndex:currentOLT,pon})});
+  const data=await res.json();
+  if(data.ok){toast('✅ PON reiniciado');loadData();}else{alert('❌ '+(data.message||'Error'));}
+}
+
+// Bulk
+async function bulkRestart() {
+  if(!confirm(`¿Reiniciar ${selectedOnts.size} ONTs?`)) return;
+  const actions=[...selectedOnts].map(v=>{const[p,o]=v.split('_');return{pon:Number(p),ont:Number(o)};});
+  const res=await fetch('/napi/onu/bulk-restart',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oltIndex:currentOLT,actions})});
+  const data=await res.json();
+  if(data.ok){toast('✅ '+data.message);loadData();}else{alert('❌ Error');}
+}
+async function bulkDelete() {
+  if(!confirm(`¿Borrar ${selectedOnts.size} ONTs?`)) return;
+  const actions=[...selectedOnts].map(v=>{const[p,o]=v.split('_');return{pon:Number(p),ont:Number(o)};});
+  const res=await fetch('/napi/onu/bulk-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oltIndex:currentOLT,actions})});
+  const data=await res.json();
+  if(data.ok){toast('✅ '+data.message);loadData();}else{alert('❌ Error');}
+}
+function updateBulkButtons() {
+  const chk=document.querySelectorAll('.ont-checkbox:checked');
+  document.getElementById('bulk-delete-btn').style.display=chk.length?'inline-block':'none';
+  document.getElementById('bulk-restart-btn').style.display=chk.length?'inline-block':'none';
+  selectedOnts.clear(); chk.forEach(c=>selectedOnts.add(c.value));
+  document.querySelectorAll('#selected-count,#selected-count2').forEach(e=>e.textContent=chk.length);
+}
+function toggleSelectAll() { const a=document.getElementById('select-all').checked; document.querySelectorAll('.ont-checkbox').forEach(c=>c.checked=a); updateBulkButtons(); }
+
+// OLT
+function showAddOLT() { document.getElementById('modal-olt').style.display='flex'; }
+function closeModalOLT() { document.getElementById('modal-olt').style.display='none'; }
+async function addOLT() {
+  const name=document.getElementById('olt-name').value.trim(), host=document.getElementById('olt-host').value.trim();
+  if(!name||!host){alert('Nombre e IP son obligatorios');return;}
+  const res=await fetch('/napi/olt/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,host,port:Number(document.getElementById('olt-port').value),username:document.getElementById('olt-user').value,password:document.getElementById('olt-pass').value,enablePass:document.getElementById('olt-enable').value})});
+  const data=await res.json();
+  if(data.ok){toast('✅ OLT agregado');closeModalOLT();await loadOLTs();updateOLTsList();['olt-name','olt-host','olt-user','olt-pass','olt-enable'].forEach(id=>document.getElementById(id).value='');document.getElementById('olt-port').value='23';}
+  else{alert('❌ Error');}
+}
+
+// Eventos — ahora muestra log real del servidor
+async function loadEvents() {
+  try {
+    const res=await fetch(`/napi/system/events/${currentOLT}`), data=await res.json();
+    const log = document.getElementById('events-log');
+    if (!data.events || !data.events.length) {
+      log.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-muted)">Sin eventos registrados</div>';
+      return;
+    }
+    log.innerHTML=data.events.map(e=>`<div class="event-item ${e.type||'info'}"><div><strong>${esc(e.message)}</strong></div><div class="event-time">${new Date(e.time).toLocaleString()}</div></div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+// UI helpers
+function sortTable(col) { if(sortColumn===col)sortDir=sortDir==='asc'?'desc':'asc';else{sortColumn=col;sortDir='asc';}renderTable(); }
+function resetFilters() {
+  ['search'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('filter-status').value='';
+  document.getElementById('filter-power-min').value='-40';
+  document.getElementById('filter-power-max').value='0';
+  document.getElementById('filter-vlan').value='';
+  document.getElementById('filter-pon').value='';
+  sortColumn='pon'; sortDir='asc'; renderTable();
+}
+function toggleFiltersPanel() { filtersVis=!filtersVis; const p=document.getElementById('filters-panel'),btn=event.target; p.style.display=filtersVis?'grid':'none'; btn.textContent=filtersVis?'▼ Ocultar':'▶ Mostrar'; }
+function filterTable(t) { if(t==='all'){resetFilters();return;} document.getElementById('filter-status').value=t; renderTable(); }
+function switchView(v, el) {
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
+  document.getElementById(v).classList.add('active');
+  if(el) el.classList.add('active');
+  else document.querySelectorAll('.nav-tab').forEach(t=>{ if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes(`'${v}'`)) t.classList.add('active'); });
+}
+function switchTab(tab, el) {
+  const modal=el ? el.closest('.modal') : document;
+  modal.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  modal.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(tab).classList.add('active');
+  if(el) el.classList.add('active');
+}
+function toggleTheme() { darkMode=!darkMode; localStorage.setItem('darkMode',darkMode); document.body.classList.toggle('dark-mode'); }
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1e293b;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;animation:slideUp 0.2s';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+function exportCSV() {
+  let csv='PON,ONT,Cliente,Cédula,Dirección,Marquilla,Teléfono,Serial,Estado,Potencia,VLAN,Notas\n';
+  allOnts.forEach(o=>{csv+=`${o.pon},${o.ont},"${o.name||''}","${o.cedula||''}","${o.direccion||''}","${o.marquilla||''}","${o.telefono||''}",${o.serial},${o.status},${o.rxPower!=null?o.rxPower:'N/A'},"${o.vlan||''}","${(o.notas||'').replace(/"/g,"'")}"\n`;});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})); a.download=`onts_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+}
+
+function exportFiltered() {
+  const search=document.getElementById('search').value.toLowerCase(), stFil=document.getElementById('filter-status').value;
+  const pwMin=parseFloat(document.getElementById('filter-power-min').value), pwMax=parseFloat(document.getElementById('filter-power-max').value);
+  const vlanFil=document.getElementById('filter-vlan').value, ponFil=document.getElementById('filter-pon').value;
+  const f=allOnts.filter(o=>{
+    const ms=(o.name||'').toLowerCase().includes(search)||(o.cedula||'').toLowerCase().includes(search)||o.serial.toLowerCase().includes(search);
+    if(!ms)return false;
+    if(stFil==='critical'&&!isCritical(o))return false;
+    if(stFil&&stFil!=='critical'&&o.status!==stFil)return false;
+    if(o.rxPower!=null){if(!isNaN(pwMin)&&o.rxPower<pwMin)return false;if(!isNaN(pwMax)&&o.rxPower>pwMax)return false;}
+    if(vlanFil==='sin'&&o.vlan)return false; if(vlanFil&&vlanFil!=='sin'&&o.vlan!==vlanFil)return false;
+    if(ponFil&&o.pon!==Number(ponFil))return false; return true;
+  });
+  let csv='PON,ONT,Cliente,Cédula,Serial,Estado,RX(dBm),VLAN\n';
+  f.forEach(o=>{csv+=`${o.pon},${o.ont},"${o.name||''}","${o.cedula||''}",${o.serial},${o.status},${o.rxPower!=null?o.rxPower:'N/A'},"${o.vlan||''}"\n`;});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`ONTs_filtrado_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+}
+
+// Inicio
+(async () => {
+  await loadOLTs();
+  loadData();
+  setInterval(loadData, 120000);
+})();
+</script>
+</body>
+</html>
