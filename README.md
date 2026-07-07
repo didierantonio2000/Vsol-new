@@ -1,48 +1,51 @@
-# ConectaQ OLT
+# ConectaQ OLT NMS Pro v10
 
-Panel local para un OLT VSOL de 8 puertos PON. Muestra solamente:
+Panel de gestión para OLT VSOL de 8 puertos PON.
 
-- ONTs por PON
-- Potencia optica de cada ONT
+## Novedades v10
+
+### 🔧 Correcciones
+- **Reiniciar ONT correctamente**: Al reiniciar una ONT desde el modal de edición, el estado se marca como "reiniciando..." inmediatamente y se actualiza solo ~30 segundos después con el estado real del OLT.
+- **Resync individual de ONT**: Botón "🔄 Estado" en el modal consulta solo esa ONT al OLT vía Telnet y actualiza el estado + potencia sin recargar todo.
+- **Resync de configuración**: La función de resincronización ahora refresca datos reales de la ONT activa.
+
+### ➕ Funciones nuevas — OLT Info
+- **Pestaña 🖥️ OLT Info**: CPU, Memoria (%), Uptime, Temperatura, Versión de firmware.
+- Parseo inteligente de los comandos `show version`, `show system cpu`, `show system memory`, `show system temperature`.
+- Muestra barras de progreso de CPU y memoria con colores (verde/naranja/rojo).
+- Salida raw del OLT para diagnóstico.
+
+### 📜 Eventos reales
+- Los eventos (reinicio ONT, borrar, autorizar, mover, crear VLAN) quedan guardados en `events_log.json`.
+- La pestaña "Eventos" muestra el log real en lugar de datos de ejemplo.
 
 ## Ejecutar
 
-```powershell
+```bash
+npm install
 npm start
 ```
 
-Abre:
+Abre `http://localhost:3000`
 
-```text
-http://localhost:3000
+## Configuración
+
+El archivo `olts.json` guarda los OLTs registrados (se crea automáticamente).
+Por defecto conecta a `170.246.112.83:2333` con usuario `ConectaQ`.
+
+## Archivos de datos
+- `olts.json` — OLTs registrados
+- `customers.json` — Datos de clientes por serial
+- `onts_cache.json` — Caché de ONTs (TTL 2 min)
+- `moves_queue.json` — Cola de movimientos pendientes
+- `power_history.json` — Historial de potencia por serial
+- `events_log.json` — Log de eventos del sistema
+
+## Estructura
 ```
-
-## Configuracion
-
-Por defecto consulta el OLT en `192.168.8.200:23`.
-
-Puedes cambiar los datos sin editar codigo:
-
-```powershell
-$env:OLT_HOST="192.168.8.200"
-$env:OLT_PORT="23"
-$env:OLT_USER="ConectaQ"
-$env:OLT_PASS="tu_password"
-$env:OLT_ENABLE_PASS="password_enable"
-$env:OLT_COMMAND_TIMEOUT="7000"
-npm start
+├── server.js         ← Backend Node.js + Telnet
+├── package.json
+├── public/
+│   └── index.html    ← Frontend completo
+└── README.md
 ```
-
-Si tu VSOL usa comandos distintos, define estos dos:
-
-```powershell
-$env:OLT_ONTS_COMMAND="show gpon onu state"
-$env:OLT_POWER_COMMAND="show gpon onu optical-power all"
-npm start
-```
-
-## Nota
-
-El backend intenta varios perfiles de comandos VSOL/genericos. Si entra al OLT pero aparece todo en cero, falta ajustar los comandos exactos que devuelve tu modelo/firmware para listar ONTs y potencia optica.
-
-En este OLT el usuario Telnet entra primero en modo limitado (`>`). Para consultar ONTs normalmente se necesita modo privilegiado (`#`) con `enable`. Si el panel muestra que falta password de enable, define `OLT_ENABLE_PASS` antes de iniciar.

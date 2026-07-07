@@ -1,20 +1,17 @@
 {
-  "name": "olt",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "conectaq-olt-nms",
+  "version": "10.0.0",
+  "description": "ConectaQ OLT NMS Pro v10 — Multi-OLT, ONT management, OLT Health (CPU/Mem/Uptime), Auto-resync post-restart",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["olt", "gpon", "nms", "vsol"],
+  "author": "ConectaQ",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "net-snmp": "^3.26.1",
-    "telnet-client": "^2.2.13"
+    "express": "^5.2.1"
   }
 }
